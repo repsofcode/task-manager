@@ -25,9 +25,7 @@ mongoose.connect(process.env.MONGO_URI)
         process.exit(1);
     });
 
-// ========================================
-// USER SCHEMA + PRE-SAVE HOOK + MODEL
-// ========================================
+//USER SCHEMA 
 const userSchema = new mongoose.Schema(
     {
         email: {
@@ -57,9 +55,8 @@ userSchema.pre('save', async function(next) {
 
 const User = mongoose.model('User', userSchema);
 
-// ========================================
-// TASK SCHEMA + MODEL
-// ========================================
+
+// task schema 
 const taskSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -77,9 +74,9 @@ const taskSchema = new mongoose.Schema({
 
 const Task = mongoose.model('Task', taskSchema);
 
-// ========================================
+
 // AUTH MIDDLEWARE
-// ========================================
+
 function authMiddleware(req, res, next) {
     try {
         const authHeader = req.headers.authorization;
@@ -105,23 +102,22 @@ function authMiddleware(req, res, next) {
     }
 }
 
-// ========================================
-// AUTH ROUTES (PUBLIC - NO MIDDLEWARE)
-// ========================================
+
+// AUTH ROUTES
 
 // POST /register
 app.post('/register', async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        // Validate input
+        
         if (!email || !password) {
             const err = new Error("Email and password are required");
             err.status = 400;
             return next(err);
         }
 
-        // Check if email already exists
+        
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             const err = new Error("Email already in use");
@@ -129,10 +125,10 @@ app.post('/register', async (req, res, next) => {
             return next(err);
         }
 
-        // Create user (password auto-hashed via pre-save hook)
+        
         const user = await User.create({ email, password });
 
-        // Return user (password auto-excluded via select: false)
+        
         res.status(201).json(user);
 
     } catch (err) {
@@ -140,28 +136,25 @@ app.post('/register', async (req, res, next) => {
     }
 });
 
-// POST /login
 app.post('/login', async (req, res, next) => {
     try {
-        // 1. Extract and validate inputs
+        
         const { email, password } = req.body;
         if (!email || !password) {
             const err = new Error("Invalid credentials");
             err.status = 400;
             return next(err);
         }
-
-        // 2. Find user + include password
         const user = await User.findOne({ email }).select('+password');
 
-        // 3. If user not found
+        
         if (!user) {
             const err = new Error("Invalid credentials");
             err.status = 400;
             return next(err);
         }
 
-        // 4. Compare passwords
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             const err = new Error("Invalid credentials");
@@ -169,14 +162,14 @@ app.post('/login', async (req, res, next) => {
             return next(err);
         }
 
-        // 5. Generate JWT
+        
         const token = jwt.sign(
             { userId: user._id },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
-        // 6. Return token
+        
         res.status(200).json({ token });
 
     } catch (err) {
@@ -184,9 +177,9 @@ app.post('/login', async (req, res, next) => {
     }
 });
 
-// ========================================
-// TASK ROUTES (PROTECTED - REQUIRE AUTH)
-// ========================================
+
+// TASK ROUTES 
+
 
 // POST /tasks
 app.post('/tasks', authMiddleware, async (req, res, next) => {
@@ -201,7 +194,7 @@ app.post('/tasks', authMiddleware, async (req, res, next) => {
     }
 });
 
-// GET /tasks - LIST ALL
+
 app.get('/tasks', authMiddleware, async (req, res, next) => {
     try {
         const tasks = await Task.find({ user: req.user.userId });
@@ -211,7 +204,7 @@ app.get('/tasks', authMiddleware, async (req, res, next) => {
     }
 });
 
-// GET /tasks/:id - SINGLE
+
 app.get('/tasks/:id', authMiddleware, async (req, res, next) => {
     try {
         const id = req.params.id;
@@ -236,7 +229,7 @@ app.get('/tasks/:id', authMiddleware, async (req, res, next) => {
     }
 });
 
-// DELETE /tasks/:id
+
 app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
     try {
         const id = req.params.id;
@@ -261,9 +254,6 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
     }
 });
 
-// ========================================
-// GLOBAL ERROR HANDLER (LAST)
-// ========================================
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(err.status || 500).json({
